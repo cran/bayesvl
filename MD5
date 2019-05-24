@@ -1,0 +1,16 @@
+fbcbdeb651a9eb7bf6b80933b38f8883 *DESCRIPTION
+6d12d4043ee76d8d82ad424732ca554e *NAMESPACE
+ec2ecb914055950719f1ee107109ae06 *R/bayesvl-class.R
+e73219668abd8304f170790718f4be16 *R/bayesvl-plots.R
+02cbad8bad6799250c1020b67637d10e *R/bayesvl-templates.R
+5b2b54053531948a2eb130cab813e9fe *R/bayesvl.R
+b72ad1e4489917fb66c6af7391bd4f06 *R/bayesvl2stan.R
+7f38f6502069eacb40177b0cd9f9de4f *R/utils.R
+79c8e1ae921c59ba00e6de094614180e *data/Legends345.rda
+169243892289cc04fe47b219ef62dde6 *man/Legends345.Rd
+2908f15397761ef9f9c1786d1560c8d3 *man/bayesvl-class.Rd
+fd1f5c52d1274eb29a04c300c0d3ea1a *man/bayesvl.Rd
+83e92127abe48d028d4129d882b61387 *man/graphs.Rd
+4df1f834d116d463df213bab902c9a99 *man/plots.Rd
+78064945cf1224c0e8abacb58af0aef8 *man/stan.Rd
+8dc63da1a6fb5e41fd937391fedf33b6 *man/vl2bn.Rd
