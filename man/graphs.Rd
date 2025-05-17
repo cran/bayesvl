@@ -42,12 +42,17 @@ bvl_addArc(dag, from, to, type = "slope", priors = NULL, fun = NULL)
 
 }
 \references{
-For documentation, case studies and worked examples, and other
-  tutorial information visit the References section on our Github:
-  
-  \itemize{
-  \item \href{https://github.com/sshpa/bayesvl/raw/master/References/bvl_ug_en08.pdf}{github.com/sshpa/bayesvl/master/References/bvl_ug_en08.pdf}
-  }
+For documentation, case studies, worked examples, and other tutorial materials, visit the References section on our GitHub:
+
+\itemize{
+  \item \href{https://github.com/sshpa/bayesvl/tree/master/References}{https://github.com/sshpa/bayesvl/tree/master/References}
+}
+
+For case studies using the package in research articles, see:
+
+\itemize{
+  \item \href{https://www.nature.com/articles/s41599-020-0442-3}{https://www.nature.com/articles/s41599-020-0442-3}
+}
 }
 \examples{
 
@@ -64,4 +69,5 @@ summary(dag)
 
 }
 \author{La Viet-Phuong, Vuong Quan-Hoang}
-\keyword{directed acyclic graphs, bayesvl}
+\keyword{directed acyclic graphs}
+\keyword{bayesvl}

@@ -1,3 +1,196 @@
+#------------------------------------------------------------------------------
+# Plot network diagram
+
+plotNetwork <- function(dag) {
+}
+
+
+bvl_plotParam1 <- function(dag, paramName = NULL, cenTend=c("mode","median","mean")[1] , 
+                     compVal=NULL, ROPE=NULL, credMass=0.95, HDItextPlace=0.7, 
+                     xlab=NULL , xlim=NULL , yaxt=NULL , ylab=NULL , 
+                     main=NULL , cex=NULL , cex.lab=NULL ,
+                     col=NULL , border=NULL , showCurve=FALSE , breaks=NULL , 
+                     ...) {
+	
+	if (is.null(dag@posterior))
+		stop("Model is not estimated!")
+	
+	if (is.null(paramName))
+		stop("Parameter is null!")
+
+	paramSampleVec = dag@posterior[[paramName]]
+	  
+  # Override defaults of hist function, if not specified by user:
+  # (additional arguments "..." are passed to the hist function)
+  if ( is.null(xlab) ) xlab="Param. Val."
+  if ( is.null(cex.lab) ) cex.lab=1.5
+  if ( is.null(cex) ) cex=1.4
+  if ( is.null(xlim) ) xlim=range( c( compVal , ROPE , paramSampleVec ) )
+  if ( is.null(main) ) main=""
+  if ( is.null(yaxt) ) yaxt="n"
+  if ( is.null(ylab) ) ylab=""
+  if ( is.null(col) ) col="skyblue"
+  if ( is.null(border) ) border="white"
+    
+  summaryColNames = c("ESS","mean","median","mode",
+                      "hdiMass","hdiLow","hdiHigh",
+                      "compVal","pGtCompVal",
+                      "ROPElow","ROPEhigh","pLtROPE","pInROPE","pGtROPE")
+  postSummary = matrix( NA , nrow=1 , ncol=length(summaryColNames) , 
+                        dimnames=list( c( xlab ) , summaryColNames ) )
+  
+  # require(coda) # for effectiveSize function
+  postSummary[,"ESS"] = effectiveSize(paramSampleVec)
+  
+  postSummary[,"mean"] = mean(paramSampleVec)
+  postSummary[,"median"] = median(paramSampleVec)
+  mcmcDensity = density(paramSampleVec)
+  postSummary[,"mode"] = mcmcDensity$x[which.max(mcmcDensity$y)]
+  
+  HDI = bvl_getHDI( paramSampleVec , credMass )
+  postSummary[,"hdiMass"]=credMass
+  postSummary[,"hdiLow"]=HDI[1]
+  postSummary[,"hdiHigh"]=HDI[2]
+  
+  # Plot histogram.
+  cvCol = "darkgreen"
+  ropeCol = "darkred"
+
+  if ( max(paramSampleVec) > min(paramSampleVec) ) {
+    breaks = c( seq( from=min(paramSampleVec) , to=max(paramSampleVec) ,
+                     by=(HDI[2]-HDI[1])/18 ) , max(paramSampleVec) )
+  } else {
+    breaks=c(min(paramSampleVec)-1.0E-6,max(paramSampleVec)+1.0E-6)
+    border="skyblue"
+  }
+
+  par(xpd=NA)
+  histinfo = hist( paramSampleVec , xlab=xlab , yaxt=yaxt , ylab=ylab ,
+                   freq=F , border=border , col=col ,
+                   xlim=xlim , main=main , cex=cex , cex.lab=cex.lab ,
+                   breaks=breaks , ... )
+
+  cenTendHt = 0.9*max(histinfo$density)
+  cenTendHt1 = 0.85*max(histinfo$density)
+  cenTendHt2 = 0.80*max(histinfo$density)
+  cvHt = 0.7*max(histinfo$density)
+  ROPEtextHt = 0.55*max(histinfo$density)
+  # Display central tendency:
+  mn = mean(paramSampleVec)
+  med = median(paramSampleVec)
+  mcmcDensity = density(paramSampleVec)
+  mo = mcmcDensity$x[which.max(mcmcDensity$y)]
+  if ( "mode" %in% cenTend ){ 
+    text( mo , cenTendHt ,
+          bquote(mode==.(signif(mo,3))) , adj=c(.5,0) , cex=cex )
+  }
+  if ( "median" %in% cenTend ){ 
+    text( med , cenTendHt1 ,
+          bquote(median==.(signif(med,3))) , adj=c(.5,0) , cex=cex , col=cvCol )
+  }
+  if ( "mean" %in% cenTend ){ 
+    text( mn , cenTendHt2 ,
+          bquote(mean==.(signif(mn,3))) , adj=c(.5,0) , cex=cex )
+  }
+
+  # Display the HDI.
+  lines( HDI , c(0,0) , lwd=4 , lend=1 )
+  text( mean(HDI) , 0 , bquote(.(100*credMass) * "% HPDI" ) ,
+        adj=c(.5,-1.7) , cex=cex )
+  text( HDI[1] , 0 , bquote(.(signif(HDI[1],3))) ,
+        adj=c(HDItextPlace,-0.5) , cex=cex )
+  text( HDI[2] , 0 , bquote(.(signif(HDI[2],3))) ,
+        adj=c(1.0-HDItextPlace,-0.5) , cex=cex )
+  par(xpd=F)
+}
+
+bvl_plotParam <- function(dag, paramName = NULL, cenTend=c("mode","median","mean")[1] , 
+                     compVal=NULL, ROPE=NULL, credMass=0.95, HDItextPlace=0.7, 
+                     xlab=NULL , xlim=NULL , yaxt=NULL , ylab=NULL , 
+                     main=NULL , cex=NULL , cex.lab=NULL ,
+                     col=NULL , border=NULL , showCurve=FALSE , breaks=NULL , 
+                     ...) {
+	
+  # Ensure required ggplot2 is available
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("Package 'ggplot2' is required but not installed.")
+  }
+
+	if (is.null(dag@posterior))
+		stop("Model is not estimated!")
+	
+	if (is.null(paramName))
+		stop("Parameter is null!")
+
+	paramSampleVec = dag@posterior[[paramName]]
+	HDI = bvl_getHDI( paramSampleVec , credMass )
+	  
+  # Override defaults of hist function, if not specified by user:
+  # (additional arguments "..." are passed to the hist function)
+  if ( is.null(xlab) ) xlab=paramName
+  if ( is.null(xlim) ) xlim=range( c( compVal , ROPE , paramSampleVec ) )
+  if ( is.null(main) ) main=""
+  if ( is.null(ylab) ) ylab=""
+  if ( is.null(col) ) col="skyblue"
+  if ( is.null(border) ) border="white"
+      
+  # Plot histogram.
+  cvCol = "darkgreen"
+  ropeCol = "darkred"
+
+  if ( max(paramSampleVec) > min(paramSampleVec) ) {
+    breaks = c( seq( from=min(paramSampleVec) , to=max(paramSampleVec) ,
+                     by=(HDI[2]-HDI[1])/18 ) , max(paramSampleVec) )
+  } else {
+    breaks=c(min(paramSampleVec)-1.0E-6,max(paramSampleVec)+1.0E-6)
+    border="skyblue"
+  }
+  
+  
+  histinfo = ggplot2::qplot( paramSampleVec , geom="histogram", xlab=xlab, ylab=ylab ,
+                    col=I(border) , fill=I(col) ,
+                   xlim=xlim , main=main , 
+                   breaks=breaks ) +
+		ggplot2::geom_segment(aes(x = HDI[1], y = 0, xend = HDI[2], yend = 0), color="black", size=1.5) +
+		ggplot2::annotate("text", x = mean(HDI) , y = 17, hjust = 0.5, vjust = -1.7, label = bquote(.(100*credMass) * "% HPDI"), size = 6) +
+		ggplot2::annotate("text", x = HDI[1] , y = 17, hjust = HDItextPlace, vjust = -0.5, label = bquote(.(signif(HDI[1],3))), size = 5 ) +
+		ggplot2::annotate("text", x = HDI[2] , y = 17, hjust = 1.0-HDItextPlace, vjust = -0.5, label = bquote(.(signif(HDI[2],3))), size = 5 )
+		
+	return(histinfo)
+
+  # plot <- ggplot2::qplot(paramSampleVec, geom = "histogram", 
+  #                        xlab = xlab, ylab = ylab, main = main,
+  #                        fill = I(col), col = I(border), breaks = breaks, ...) +
+  #   ggplot2::geom_segment(aes(x = HDI[1], xend = HDI[2], y = 0, yend = 0), color = "black", size = 1.5) +
+  #   ggplot2::annotate("text", x = mean(HDI), y = Inf, vjust = 1.7, 
+  #                     label = paste0(round(100 * credMass), "% HPDI"), size = 5) +
+  #   ggplot2::annotate("text", x = HDI[1], y = Inf, hjust = HDItextPlace, vjust = 2.5, 
+  #                     label = signif(HDI[1], 3), size = 4) +
+  #   ggplot2::annotate("text", x = HDI[2], y = Inf, hjust = 1 - HDItextPlace, vjust = 2.5, 
+  #                     label = signif(HDI[2], 3), size = 4) +
+  #   ggplot2::theme_minimal()
+
+  # return(plot)
+
+}
+
+bvl_plotParams <- function(dag, row = 2, col = 2, credMass = 0.95, params = NULL) {
+	par(mfrow=c(row,col))
+	
+	if (is.null(dag@posterior))
+		stop("Model is not estimated!")
+	
+	if (is.null(params))
+		params <- bvl_getParams(dag)
+
+	mcmcMat = as.matrix(dag@posterior[params], chains=TRUE)
+	
+	cols = colnames(mcmcMat)
+	for ( i in 1:length(cols) ) {
+			plotPost(mcmcMat[,cols[i]],xlab=cols[i], credMass=credMass)
+	}
+	
+}
 
 #------------------------------------------------------------------------------
 # Get regression parameter names
@@ -43,23 +236,6 @@ plotParams <- function(post, row = 2, col = 2, credMass) {
 	}
 }
 
-bvl_plotParams <- function(dag, row = 2, col = 2, credMass = 0.89, params = NULL) {
-	par(mfrow=c(row,col))
-	
-	if (is.null(dag@posterior))
-		stop("Model is not estimated!")
-	
-	if (is.null(params))
-		params <- bvl_getParams(dag)
-
-	mcmcMat = as.matrix(dag@posterior[params], chains=TRUE)
-	
-	cols = colnames(mcmcMat)
-	for ( i in 1:length(cols) ) {
-			plotPost(mcmcMat[,cols[i]],xlab=cols[i], credMass=credMass)
-	}
-}
-
 #------------------------------------------------------------------------------
 # Plot log likelihood
 
@@ -86,6 +262,13 @@ bvl_logLik <- function(dag)
 plotPPC <- function(stanfit, data, y_name, fun = "stat", stat = "mean", color_scheme = "blue")
 {
 	#require(bayesplot)
+  if (!requireNamespace("bayesplot", quietly = TRUE)) {
+    stop("The 'bayesplot' package is required but not installed. Please install it to use this function.")
+  }
+
+  if (!is.data.frame(data)) {
+    stop("'data' must be a data frame.")
+  }
 	
 	parName <- paste0("yrep_",y_name)
 
@@ -98,6 +281,9 @@ plotPPC <- function(stanfit, data, y_name, fun = "stat", stat = "mean", color_sc
 bvl_plotPPC <- function(dag, fun = "stat", stat = "mean", color_scheme = "blue")
 {
 	#require(bayesplot)
+  if (!requireNamespace("bayesplot", quietly = TRUE)) {
+    stop("The 'bayesplot' package is required but not installed. Please install it to use this function.")
+  }
 	
 	leaves <- bvl_getLeaves(dag)
 	
@@ -224,6 +410,39 @@ bvl_plotGelmans <- function( dag, params = NULL, row = 2, col = 2) {
   )  
 }
 
+bvl_plotAc <- function(dag, params = NULL) {
+  if (is.null(dag@stanfit)) {
+    stop("Model has not been estimated.")
+  }
+
+  if (is.null(params)) {
+    params <- stan_paramNames(dag, TRUE)  # assumes this returns parameter names
+  }
+
+  rstan::stan_ac(dag@stanfit, pars = params)
+}
+
+bvl_plotAcf_Bar <- function( dag, params = NULL, color_scheme="pink",labels=NULL) {
+	# require(bayesplot)
+	
+	if (is.null(dag@posterior))
+		stop("Model is not estimated!")
+	
+	if (is.null(params))
+		params <- bvl_getParams(dag)
+
+	bayesplot::color_scheme_set(color_scheme)
+
+	if (!is.null(labels) && length(labels) == length(params))
+	{
+		dat <- dag@posterior[params]
+		colnames(dat) <- labels
+		bayesplot::mcmc_acf_bar(dat, pars = labels)
+	}
+	else
+		bayesplot::mcmc_acf_bar(dag@posterior, pars = params)
+}
+
 bvl_plotAcf <- function( dag, params = NULL) {
   DBDAplColors = c("skyblue","black","royalblue","steelblue")
 
@@ -261,10 +480,20 @@ bvl_plotAcfs <- function( dag, params = NULL, row = 2, col = 2) {
   }  
 }
 
+bvl_plotMCMCDiag <- function( dag, parName, saveName=NULL , saveType="jpg") {
+
+	if (is.null(dag@stanfit))
+		stop("Model is not estimated!")
+
+	codaObject <- stan2coda(dag@stanfit)
+	
+  plotMCMCDiag(codaObject, parName, saveName=saveName , saveType=saveType)
+}
+
 #------------------------------------------------------------------------------
 # Plot intervals
 
-bvl_plotIntervals <- function(dag, params = NULL, fun = "stat", stat = "mean", prob = 0.8, prob_outer = 0.95, color_scheme = "blue", labels = NULL)
+bvl_plotIntervals <- function(dag, params = NULL, fun = "mean", prob = 0.8, prob_outer = 0.95, color_scheme = "blue", labels = NULL)
 {
 	# require(bayesplot)
 	
@@ -280,13 +509,13 @@ bvl_plotIntervals <- function(dag, params = NULL, fun = "stat", stat = "mean", p
 	{
 		dat <- dag@posterior[params]
 		colnames(dat) <- labels
-		bayesplot::mcmc_intervals(dat, pars = labels, point_est = "mean", prob = prob, prob_outer = prob_outer)
+		bayesplot::mcmc_intervals(dat, pars = labels, point_est = fun, prob = prob, prob_outer = prob_outer)
 	}
 	else
-		bayesplot::mcmc_intervals(dag@posterior, pars = params, point_est = "mean", prob = prob, prob_outer = prob_outer)	
+		bayesplot::mcmc_intervals(dag@posterior, pars = params, point_est = fun, prob = prob, prob_outer = prob_outer)	
 }
 
-bvl_plotAreas <- function(dag, params = NULL, fun = "stat", stat = "mean", prob = 0.8, prob_outer = 0.95, color_scheme = "blue", labels = NULL)
+bvl_plotAreas <- function(dag, params = NULL, fun = "mean", prob = 0.8, prob_outer = 0.95, color_scheme = "blue", labels = NULL)
 {
 	# require(bayesplot)
 	
@@ -302,16 +531,42 @@ bvl_plotAreas <- function(dag, params = NULL, fun = "stat", stat = "mean", prob 
 	{
 		dat <- dag@posterior[params]
 		colnames(dat) <- labels
-		bayesplot::mcmc_intervals(dat, pars = labels, point_est = "mean", prob = prob, prob_outer = prob_outer)
+		bayesplot::mcmc_intervals(dat, pars = labels, point_est = fun, prob = prob, prob_outer = prob_outer)
 	}
 	else
-		bayesplot::mcmc_areas(dag@posterior, pars = params, point_est = "mean", prob = prob, prob_outer = prob_outer)
+		bayesplot::mcmc_areas(dag@posterior, pars = params, point_est = fun, prob = prob, prob_outer = prob_outer)
 }
+
+#------------------------------------------------------------------------------
+# Plot scatter
+
+bvl_plotScatter <- function(dag, params = NULL, size = 1.5, alpha = 0.5, color_scheme = "blue", labels = NULL)
+{
+	# require(bayesplot)
+	
+	if (is.null(dag@posterior))
+		stop("Model is not estimated!")
+	
+	if (is.null(params))
+		params <- bvl_getParams(dag)
+
+	bayesplot::color_scheme_set(color_scheme)
+
+	if (!is.null(labels) && length(labels) == length(params))
+	{
+		dat <- dag@posterior[params]
+		colnames(dat) <- labels
+		bayesplot::mcmc_scatter(dat, pars = labels, size = size, alpha = alpha)
+	}
+	else
+		bayesplot::mcmc_scatter(dag@posterior, pars = params, size = size, alpha = alpha)
+}
+             
 
 #------------------------------------------------------------------------------
 # Plot pairs
 
-bvl_plotPairs <- function(dag, params = NULL, fun = "stat", stat = "mean", prob = 0.8, prob_outer = 0.95, color_scheme = "blue", labels = NULL)
+bvl_plotPairs <- function(dag, params = NULL, size = 1, color_scheme = "blue", labels = NULL)
 {
 	# require(bayesplot)
 	
@@ -327,10 +582,12 @@ bvl_plotPairs <- function(dag, params = NULL, fun = "stat", stat = "mean", prob 
 	{
 		dat <- dag@posterior[params]
 		colnames(dat) <- labels
-		bayesplot::mcmc_intervals(dat, pars = labels, point_est = "mean", prob = prob, prob_outer = prob_outer)
+		p <- bayesplot::mcmc_pairs(dat, pars = labels, off_diag_args = list(size = size))
 	}
 	else
-		bayesplot::mcmc_pairs(dag@posterior, pars = params, off_diag_args = list(size = 1.5))
+		p <- bayesplot::mcmc_pairs(dag@stanfit, pars = params, off_diag_args = list(size = size))
+		
+	return (p)
 }
 
 #------------------------------------------------------------------------------
@@ -355,9 +612,10 @@ bvl_plotDensity2d <- function(dag, x, y, color = NULL, color_scheme = "red", lab
 		laby = y
 	}
 	
+	p <- NULL
 	if (is.null(color))
 	{
-		ggplot2::ggplot(dag@posterior, aes(x=dag@posterior[[x]], y=dag@posterior[[y]])) +
+		p <- ggplot2::ggplot(dag@posterior, aes(x=dag@posterior[[x]], y=dag@posterior[[y]])) +
 			geom_point(alpha = 0.3, color = color_scheme)+
 			geom_density2d(color = "gray30")+
 			viridis::scale_color_viridis(option = "C")+ 
@@ -366,13 +624,15 @@ bvl_plotDensity2d <- function(dag, x, y, color = NULL, color_scheme = "red", lab
 	}
 	else
 	{
-		ggplot2::ggplot(dag@posterior, aes(x=dag@posterior[[x]], y=dag@posterior[[y]], color = dag@posterior[[color]]))+
+		p <- ggplot2::ggplot(dag@posterior, aes(x=dag@posterior[[x]], y=dag@posterior[[y]], color = dag@posterior[[color]]))+
 			geom_point(alpha = 0.3)+
 			geom_density2d(color = "gray30")+
 			viridis::scale_color_viridis(option = "C")+ 
 			geom_abline(intercept=0,slope=1) +
 			labs(x = labx, y = laby, color = color)
 	}
+	
+	return (p)
 }
 
 bvl_plotDensity <- function(dag, params = NULL, size = 1, labels = NULL)
@@ -395,8 +655,46 @@ bvl_plotDensity <- function(dag, params = NULL, size = 1, labels = NULL)
 	ref <- reshape2::melt(postParams)
 	colnames(ref)[2:3] <- c("value","Params")
 	
-	ggplot2::ggplot(data=ref,aes_string(x="value", color="Params"))+geom_density(size=size)
+	p <- ggplot2::ggplot(data=ref,aes_string(x="value", color="Params"))+geom_density(size=size)
+	
+	return(p)
 }
+
+#------------------------------------------------------------------------------
+# Plot pairs
+
+#bvl_plotVarying <- function(dag, paramName = NULL, size = 1, color_scheme = "blue", labels = NULL)
+#{
+#	# require(bayesplot)
+#	
+#	if (is.null(dag@posterior))
+#		stop("Model is not estimated!")
+#	
+#	if (is.null(params))
+#		params <- bvl_getParams(dag)
+#
+#for(lv in 1:levels)
+#{
+#	postGrade6 <- rstan::extract(dag@stanfit, pars = pars_grade6)
+#	ref_grade6 <- melt(postGrade6)
+#	colnames(ref_grade6)[2:3] <- c("beta_grade","colors")
+#	
+#	for(i in 1:length(gradeLookupVec$levind2))
+#	{
+#		ref_grade6[ref_grade6==paste0("beta_grade[",gradeLookupVec$levind2[i],"]")]<-school_names[gradeLookupVec$school[i]]
+#	}
+#	ggplot(data=ref_grade6,aes(x=beta_grade, color=colors),size=2)+geom_density()
+#}
+#
+#	if (!is.null(labels) && length(labels) == length(params))
+#	{
+#		dat <- dag@posterior[params]
+#		colnames(dat) <- labels
+#		bayesplot::mcmc_pairs(dat, pars = labels, off_diag_args = list(size = size))
+#	}
+#	else
+#		bayesplot::mcmc_pairs(dag@posterior, pars = params, off_diag_args = list(size = size))
+#}
 
 #------------------------------------------------------------------------------
 # Plot posterior historam
@@ -422,7 +720,8 @@ plotPost = function( paramSampleVec , cenTend=c("mode","median","mean")[1] ,
   if ( is.null(border) ) border="white"
   
   # convert coda object to matrix:
-  if ( class(paramSampleVec) == "mcmc.list" ) {
+  #if ( class(paramSampleVec) == "mcmc.list" ) {
+  if (inherits(paramSampleVec, "mcmc.list")) {
     paramSampleVec = as.matrix(paramSampleVec)
   }
   
@@ -614,4 +913,89 @@ plotDens = function( codaObject , parName=coda::varnames(codaObject)[1] , plColo
   MCSE = sd(as.matrix(codaObject[,c(parName)]))/sqrt(EffChnLngth) 
   text( max(xMat) , max(yMat) , adj=c(1.0,1.0) , cex=1.25 ,
         paste("MCSE =\n",signif(MCSE,3)) )
+}
+
+plotMCMCDiag = function( codaObject , parName=coda::varnames(codaObject)[1] ,
+                     saveName=NULL , saveType="jpg" ) {
+# Check if coda is available
+  if (!requireNamespace("coda", quietly = TRUE)) {
+    stop("Package 'coda' is required but not installed.")
+  }
+  
+  DBDAplColors = c("skyblue","black","royalblue","steelblue")
+  openGraph(height=5,width=7)
+  par( mar=0.5+c(3,4,1,0) , oma=0.1+c(0,0,2,0) , mgp=c(2.25,0.7,0) , 
+       cex.lab=1.5 )
+  layout(matrix(1:4,nrow=2))
+  # traceplot and gelman.plot are from CODA package:
+  #require(coda)
+  coda::traceplot( codaObject[,c(parName)] , main="" , ylab="Param. Value" ,
+                   col=DBDAplColors ) 
+  tryVal = try(
+    coda::gelman.plot( codaObject[,c(parName)] , main="" , auto.layout=FALSE , 
+                       col=DBDAplColors )
+  )  
+  # if it runs, gelman.plot returns a list with finite shrink values:
+  if (inherits(tryVal, "try-error") || (is.list(tryVal) && !is.finite(tryVal$shrink[1]))) {
+    plot.new()
+    message("Warning: coda::gelman.plot failed for ", parName)
+  }
+
+  plotAcf(codaObject,parName,plColors=DBDAplColors)
+  plotDens(codaObject,parName,plColors=DBDAplColors)
+  mtext( text=parName , outer=TRUE , adj=c(0.5,0.5) , cex=2.0 )
+
+  if ( !is.null(saveName) ) {
+    saveGraph( file=paste0(saveName,"Diag",parName), type=saveType)
+  }
+}
+
+#------------------------------------------------------------------------------
+# Functions for opening and saving graphics that operate the same for 
+# Windows and Macintosh and Linux operating systems. At least, that's the hope!
+
+openGraph <- function(width = 7, height = 7, mag = 1.0, ...) {
+  width <- width * mag
+  height <- height * mag
+
+  if (.Platform$OS.type != "windows") {
+    tryInfo <- try(grDevices::X11(width = width, height = height, type = "cairo", ...), silent = TRUE)
+    if (inherits(tryInfo, "try-error")) {
+      readline("WARNING: Too many open graphics windows.\nThey will be closed. Press <ENTER> to continue.\n")
+      graphics.off()
+      grDevices::X11(width = width, height = height, type = "cairo", ...)
+    }
+  } else {
+    tryInfo <- try(grDevices::windows(width = width, height = height, ...), silent = TRUE)
+    if (inherits(tryInfo, "try-error")) {
+      readline("WARNING: Too many open graphics windows.\nThey will be closed. Press <ENTER> to continue.\n")
+      graphics.off()
+      grDevices::windows(width = width, height = height, ...)
+    }
+  }
+}
+
+saveGraph <- function(file = "saveGraphOutput", type = "pdf", ...) {
+  type <- tolower(type)
+  ext <- if (type == "jpg") "jpeg" else type
+  fullfile <- paste0(file, ".", type)
+
+  if (.Platform$OS.type != "windows") {
+    # Non-Windows (macOS, Linux)
+    if (ext %in% c("png", "jpeg", "tiff", "bmp")) {
+      grDevices::savePlot(filename = fullfile, type = ext, ...)
+    } else if (ext == "pdf") {
+      grDevices::dev.copy2pdf(file = fullfile, ...)
+    } else if (ext == "eps") {
+      grDevices::dev.copy2eps(file = fullfile, ...)
+    } else {
+      stop("Unsupported file type on non-Windows system: ", type)
+    }
+  } else {
+    # Windows
+    if (!ext %in% c("pdf", "eps", "png", "jpeg", "jpg", "bmp", "tiff")) {
+      stop("Unsupported file type on Windows system: ", type)
+    }
+    grDevices::savePlot(filename = fullfile, type = ext, ...)
+  }
 }

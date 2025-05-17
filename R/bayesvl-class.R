@@ -359,19 +359,18 @@ if (!isGeneric("bvl_validData"))
       setGeneric("bvl_validData", function(dag, data, silent = F) standardGeneric("bvl_validData"))
 
 setMethod("bvl_validData", "bayesvl", function(dag, data, silent = F) {
-	if (is.null(data))
+	if (is.empty(data))
 	{
 		if (!silent)
 			message("The data is null!")
 		return (FALSE)
 	}	
 	
-	if(class(data)!="data.frame")
-	{
-		if (!silent)
-			message("The data must be data frame!")
-		return (FALSE)
-	}	
+	# Ensure data is a data.frame
+	if (!is.data.frame(data)) {
+		if (!silent) message("The data must be a data frame!")
+		return(FALSE)
+	}
 	
 	nodes <- stan_dataNodes(dag)
 	for(i in 1:length(nodes))
@@ -381,6 +380,12 @@ setMethod("bvl_validData", "bayesvl", function(dag, data, silent = F) {
 			if (!silent)
 				message(paste0("The node '", nodes[i], "' is not existed in data!"))
 			return (FALSE)
+		}
+
+		if (!(is.numeric(data[ ,nodes[i]]) || is.factor(data[ ,nodes[i]])))
+		{
+				message(paste0("The node '", nodes[i], "' must be 'factor' or 'numeric'!"))
+				return (FALSE)
 		}
 
 		node = dag@nodes[[nodes[i]]]
@@ -398,10 +403,16 @@ setMethod("bvl_validData", "bayesvl", function(dag, data, silent = F) {
 			else
 			{
 					if (!silent)
-						message(paste0("The dataset contains NA value!"))
+						message(paste0("The dataset contains NA values in node '", node$name, "'!"))
 					return (FALSE)
 			}
 		}
+		
+		#if (node$dist != "cat" && (class(data[ ,node$name]) == "factor"))
+		#{
+		#		message(paste0("The node '", node$name, "' with data of 'factor' must be 'cat' distribution!"))
+		#		return (FALSE)
+		#}
 	}
 
 	return(TRUE)

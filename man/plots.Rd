@@ -10,7 +10,13 @@
 \alias{bvl_plotTrace}
 \alias{bvl_plotGelman}
 \alias{bvl_plotGelmans}
+\alias{bvl_plotAc}
+\alias{bvl_plotAcf}
 \alias{bvl_plotAcfs}
+\alias{bvl_plotAcf_Bar}
+\alias{bvl_plotDensOverlay}
+\alias{bvl_plotMCMCDiag}
+\alias{bvl_plotPPC}
 \alias{bvl_plotTest}
 \alias{bvl_plotDiag}
 \alias{bvl_bnPlot}
@@ -25,22 +31,18 @@
 bvl_bnPlot(dag, ...)
 
 # Plots historgram of regression parameters computed from posterior draws in grid layout
-bvl_plotParams (dag, row = 2, col = 2, credMass = 0.89, params = NULL)
+bvl_plotParams (dag, row = 2, col = 2, credMass = 0.95, params = NULL)
 
 # The interface to mcmc_intervals for plotting uncertainty intervals
 # computed from posterior draws
-bvl_plotIntervals (dag, params = NULL, fun = "stat", stat = "mean", 
-  prob = 0.8, prob_outer = 0.95, 
-  color_scheme = "blue", labels = NULL)
+bvl_plotIntervals (dag, params = NULL, fun = "mean", prob = 0.8, 
+  prob_outer = 0.95, color_scheme = "blue", labels = NULL)
 
 # The interface to mcmc_intervals for plotting density computed from posterior draws
-bvl_plotAreas (dag, params = NULL, fun = "stat", stat = "mean", 
-  prob = 0.8, prob_outer = 0.95, 
-  color_scheme = "blue", labels = NULL)
+bvl_plotAreas (dag, params = NULL, fun = "mean", 
+  prob = 0.8, prob_outer = 0.95, color_scheme = "blue", labels = NULL)
 
-bvl_plotPairs (dag, params = NULL, fun = "stat", stat = "mean", 
-  prob = 0.8, prob_outer = 0.95, 
-  color_scheme = "blue", labels = NULL)
+bvl_plotPairs (dag, params = NULL, size = 1, color_scheme = "blue", labels = NULL)
 
 bvl_plotDensity (dag, params = NULL, size = 1, labels = NULL)
 
@@ -54,10 +56,23 @@ bvl_plotGelman (dag, params = NULL)
 
 bvl_plotGelmans (dag, params = NULL, row = 2, col = 2)
 
+bvl_plotAc ( dag, params = NULL)
+
+bvl_plotAcf ( dag, params = NULL)
+
 bvl_plotAcfs ( dag, params = NULL, row = 2, col = 2)
+
+bvl_plotAcf_Bar ( dag, params = NULL, color_scheme="pink",labels=NULL)
+
+bvl_plotDensOverlay (dag, n = 200, color_scheme = "blue")
+
+bvl_plotMCMCDiag ( dag, parName, saveName=NULL , saveType="jpg")
+
+bvl_plotPPC (dag, fun = "stat", stat = "mean", color_scheme = "blue")
 
 bvl_plotTest (dag, y_name, test_name, n = 200, color_scheme = "blue")
 }
+
 \arguments{
   \item{dag}{an object of class \code{bayesvl}}
   \item{params}{Optional: character vector of parameter names.}
@@ -81,6 +96,10 @@ bvl_plotTest (dag, y_name, test_name, n = 200, color_scheme = "blue")
 	\item{color}{a character string. Variable for color of points on density plot }
 
   \item{labels}{Optional: character vector of parameter labels.}
+
+  \item{parName}{parameter name for plotting.}
+  \item{saveName}{file name for exporting plot.}
+  \item{saveType}{type of file name for exporting plot (default is 'jpg').}
 }
 \value{
 
@@ -88,12 +107,17 @@ bvl_plotTest (dag, y_name, test_name, n = 200, color_scheme = "blue")
 
 }
 \references{
-For documentation, case studies and worked examples, and other
-  tutorial information visit the References section on our Github:
-  
-  \itemize{
-  \item \href{https://github.com/sshpa/bayesvl/raw/master/References/bvl_ug_en08.pdf}{github.com/sshpa/bayesvl/master/References/bvl_ug_en08.pdf}
-  }
+For documentation, case studies, worked examples, and other tutorial materials, visit the References section on our GitHub:
+
+\itemize{
+  \item \href{https://github.com/sshpa/bayesvl/tree/master/References}{https://github.com/sshpa/bayesvl/tree/master/References}
+}
+
+For case studies using the package in research articles, see:
+
+\itemize{
+  \item \href{https://www.nature.com/articles/s41599-020-0442-3}{https://www.nature.com/articles/s41599-020-0442-3}
+}
 }
 \examples{
 
@@ -151,4 +175,6 @@ bvl_bnPlot(model)
 
 }
 \author{La Viet-Phuong, Vuong Quan-Hoang}
-\keyword{directed acyclic graphs, bayesvl, bayesvl plots}
+\keyword{directed acyclic graphs}
+\keyword{bayesvl}
+\keyword{bayesvl plots}

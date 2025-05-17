@@ -601,7 +601,8 @@ stan_yrepTest <- function(dag, node, getCode = T)
 				  yrepCode <- paste0(yrepCode, stan_indent(5), "}\n")
 				  
 				  #yrepVar <- paste0(yrepVar, stan_indent(5), "real ", new_parreg, ";\n")
-				  yrepVar <- paste0(yrepVar, stan_indent(5), template$out_type, " yrep_", paste0(dag@nodes[[i]]$name, "_", val), "[Nobs];\n")
+				  vartype = stan_replaceNode(template$out_type, dag@nodes[[i]])
+				  yrepVar <- paste0(yrepVar, stan_indent(5), vartype, " yrep_", paste0(dag@nodes[[i]]$name, "_", val), "[Nobs];\n")
 				}
 			}
 		}
@@ -930,6 +931,13 @@ bvl_formula <- function(dag, nodeName, outcome = T, re = F)
 	cat(f)
 }
 
+bvl_stanLikelihood <- function(dag)
+{
+	f <- stan_formula(dag)
+	
+	cat(f)
+}
+
 ############ PRIOR FUNCTIONS ##############
 stan_priorString <- function(dag)
 {
@@ -1080,8 +1088,9 @@ bvl_model2Stan <- function(dag, ppc = "")
 		quantities_var <- ""
 	  if(stan_yrepString(nextNodes[[n]]) != "")
 	  {
+	  vartype = stan_replaceNode(template$out_type, nextNodes[[n]])
 		quantities_var <- paste0(quantities_var, stan_indent(5), "// simulate data from the posterior\n")
-		quantities_var <- paste0(quantities_var, stan_indent(5), template$out_type, " yrep_",nextNodes[[n]]$name,"[Nobs];\n")
+		quantities_var <- paste0(quantities_var, stan_indent(5), vartype, " yrep_",nextNodes[[n]]$name,"[Nobs];\n")
 		}
 		quantities_var <- paste0(quantities_var, stan_indent(5), "// log-likelihood posterior\n")
 		quantities_var <- paste0(quantities_var, stan_indent(5), "vector[Nobs] log_lik_",nextNodes[[n]]$name,";\n")
@@ -1203,6 +1212,7 @@ bvl_modelData <- function(net, data)
 		if (node$dist == "cat")
 		{
 			dataList[[paste0("N",nodes[i])]] <- length(unique(data[ , nodes[i]]))
+			#dataList[[paste0("N",nodes[i])]] <- max(as.numeric(data[ , nodes[i]]))
 		}
 
 		if ((isVarIntFrom(net, net@nodes[[nodes[i]]]) || isVarSlopeFrom(net, net@nodes[[nodes[i]]])) && !(paste0("N",nodes[i]) %in% names(dataList)))
@@ -1225,6 +1235,9 @@ bvl_modelData <- function(net, data)
 
 bvl_modelFix <- function(dag, data)
 {
+	if (!bvl_validData(dag, data))
+		stop("Invalid data to estimate!")
+
 	for(i in 1:length(dag@nodes))
 	{
 		node = dag@nodes[[i]]
@@ -1240,7 +1253,7 @@ bvl_modelFix <- function(dag, data)
 			if (isVarIntFrom(dag, node) && (node$dist != "trans"))
 			{
 					minX = min(unique(as.numeric(data[ , node$name])))
-					#print(node$name)
+					print(node$name)
 					if (minX < 1)
 						node$lower = minX			
 			}
@@ -1289,8 +1302,10 @@ bvl_modelFit <- function(dag, data, warmup = 1000, iter = 5000, chains = 2, ppc 
 	#else
 	#{
 		# Compiling and producing posterior samples from the model.
+		#mstan <- rstan::stan(model_code = model_string, data = dataList,
+	  #        		warmup=warmup , iter = iter, chains = chains, refresh=-1, ...)
 		mstan <- rstan::stan(model_code = model_string, data = dataList,
-	          		warmup=warmup , iter = iter, chains = chains, refresh=-1, ...)
+	          		warmup=warmup , iter = iter, chains = chains, ...)
   #}
 
 
@@ -1298,10 +1313,12 @@ bvl_modelFit <- function(dag, data, warmup = 1000, iter = 5000, chains = 2, ppc 
 
 	dag@elapsed <- as.numeric((end_time - start_time), units = "secs")
   
-  dag@stanfit <- mstan
   dag@rawdata <- data
   dag@standata <- dataList
-  dag@posterior <- as.data.frame(dag@stanfit)
+  dag@stanfit <- mstan
+  
+  if(!is.empty(mstan))
+  	dag@posterior <- as.data.frame(dag@stanfit)
 
 	return(dag)
 }
@@ -1309,4 +1326,112 @@ bvl_modelFit <- function(dag, data, warmup = 1000, iter = 5000, chains = 2, ppc 
 bvl_stanRun <- function(dag, dataList, ...)
 {
 	return(bvl_modelFit(dag, dataList, ...))
+}
+
+bvl_stanLoo <- function(dag, ...) {
+  # Ensure required package is available
+  if (!requireNamespace("loo", quietly = TRUE)) {
+    stop("The 'loo' package is required but not installed. Please install it to use this function.")
+  }
+
+  # Check that the model is estimated
+  if (is.null(dag@stanfit) || length(dag@stanfit@model_name) == 0) {
+    stop("The model has not been estimated. Please run model fitting before calculating LOO.")
+  }
+
+  # Get observable leaf nodes
+  leaves <- bvl_getLeaves(dag)
+  if (is.null(leaves) || length(leaves) == 0) {
+    stop("Invalid model: no observable (leaf) nodes found.")
+  }
+
+  # Compose log-likelihood parameter name
+  parName <- paste0("log_lik_", leaves[[1]]$name)
+
+  # Extract log-likelihood samples from stanfit object
+  log_lik <- loo::extract_log_lik(dag@stanfit, parameter_name = parName, merge_chains = FALSE)
+
+  # Calculate relative effective sample size
+  r_eff <- loo::relative_eff(exp(log_lik), chain_id = rep(1:ncol(log_lik), each = nrow(log_lik)))
+
+  # Compute LOO
+  loo_result <- loo::loo(log_lik, r_eff = r_eff, cores = 2, ...)
+
+  return(loo_result)
+}
+
+bvl_compareLoo <- function(dag1, dag2, ...) {
+  # Check if 'loo' package is available
+  if (!requireNamespace("loo", quietly = TRUE)) {
+    stop("Package 'loo' is required but not installed.")
+  }
+
+  # Check if models are estimated
+  if (is.null(dag1@stanfit) || length(dag1@stanfit@model_name) == 0) {
+    stop("dag1 is not estimated. Please run model fitting first.")
+  }
+
+  if (is.null(dag2@stanfit) || length(dag2@stanfit@model_name) == 0) {
+    stop("dag2 is not estimated. Please run model fitting first.")
+  }
+
+  # Compute loo
+  loo1 <- bvl_stanLoo(dag1)
+  loo2 <- bvl_stanLoo(dag2)
+
+  # Compare
+  comp <- loo::loo_compare(loo1, loo2, ...)
+
+  return(comp)
+}
+
+bvl_stanWAIC <- function(dag, ...) {
+  # Check if the 'loo' package is available
+  if (!requireNamespace("loo", quietly = TRUE)) {
+    stop("The 'loo' package is required but not installed. Please install it to use this function.")
+  }
+
+  # Check that the model is estimated
+  if (is.null(dag@stanfit) || length(dag@stanfit@model_name) == 0) {
+    stop("The model has not been estimated. Please run model fitting before calculating WAIC.")
+  }
+
+  # Extract leaf nodes from DAG
+  leaves <- bvl_getLeaves(dag)
+  if (is.null(leaves) || length(leaves) == 0) {
+    stop("Invalid model: no observable (leaf) nodes found.")
+  }
+
+  # Extract pointwise log-likelihood
+  parName <- paste0("log_lik_", leaves[[1]]$name)
+  log_lik <- loo::extract_log_lik(dag@stanfit, parameter_name = parName, merge_chains = FALSE)
+
+  # Compute WAIC
+  waic_result <- loo::waic(log_lik, ...)
+
+  return(waic_result)
+}
+
+bvl_compareWAIC <- function(dag1, dag2, ...) {
+  # Ensure loo package is available
+  if (!requireNamespace("loo", quietly = TRUE)) {
+    stop("Package 'loo' is required but not installed.")
+  }
+
+  # Check model estimation
+  if (is.null(dag1@stanfit) || length(dag1@stanfit@model_name) == 0) {
+    stop("dag1 is not estimated. Please run model fitting first.")
+  }
+  if (is.null(dag2@stanfit) || length(dag2@stanfit@model_name) == 0) {
+    stop("dag2 is not estimated. Please run model fitting first.")
+  }
+
+  # Calculate WAIC for both models
+  waic1 <- bvl_stanWAIC(dag1)
+  waic2 <- bvl_stanWAIC(dag2)
+
+  # Compare using loo::compare
+  comp <- loo::compare(waic1, waic2, ...)
+
+  return(comp)
 }

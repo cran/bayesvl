@@ -11,6 +11,11 @@
 \alias{bvl_bnScore}
 \alias{bvl_bnStrength}
 \alias{bvl_bnBarchart}
+
+\alias{bvl_modelData}
+\alias{bvl_compareLoo}
+\alias{bvl_compareWAIC}
+
 \title{bnlearn interface for bayesvl objects}
 \description{
 
@@ -34,6 +39,12 @@ bvl_bnStrength(dag, data = NULL, criterion = "x2", ...)
 # the parameters of a Bayesian network conditional on its structure.
 bvl_bnBarchart(dag, data = NULL, method = "bayes", iss = 10, ...) 
 
+bvl_modelData (net, data)
+
+bvl_compareLoo (dag1, dag2, ...)
+
+bvl_compareWAIC (dag1, dag2, ...)
+
 }
 \arguments{
   \item{dag}{an object of class \code{bayesvl}}
@@ -47,6 +58,12 @@ bvl_bnBarchart(dag, data = NULL, method = "bayes", iss = 10, ...)
   the conditional probability tables associated with discrete nodes}
 
   \item{criterion}{a character string, the method using for measuring}
+
+  \item{net}{network graph}
+
+  \item{dag1}{first model to compare}
+
+  \item{dag2}{second model to compare}
   
   \item{...}{extra arguments from the generic method}
 }
@@ -56,12 +73,19 @@ bvl_bnBarchart(dag, data = NULL, method = "bayes", iss = 10, ...)
 
 }
 \references{
-For documentation, case studies and worked examples, and other
-  tutorial information visit the References section on our Github:
-  
-  \itemize{
-  \item \href{https://github.com/sshpa/bayesvl/raw/master/References/bvl_ug_en08.pdf}{github.com/sshpa/bayesvl/master/References/bvl_ug_en08.pdf}
-  }
+For documentation, case studies, worked examples, and other tutorial materials, visit the References section on our GitHub:
+
+\itemize{
+  \item \href{https://github.com/sshpa/bayesvl/tree/master/References}{https://github.com/sshpa/bayesvl/tree/master/References}
+}
+
+For case studies using the package in research articles, see:
+
+\itemize{
+  \item \href{https://www.nature.com/articles/s41599-020-0442-3}{https://www.nature.com/articles/s41599-020-0442-3}
+}
 }
 \author{La Viet-Phuong, Vuong Quan-Hoang}
-\keyword{directed acyclic graphs, bayesvl, bayesvl bnlearn}
+\keyword{directed acyclic graphs}
+\keyword{bayesvl}
+\keyword{bayesvl bnlearn}
